@@ -85,26 +85,12 @@ async function dbSet(key, value) {
   });
 }
 
-const makeId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-const photoAdjust = (photo) => {
-  const panX = Number.isFinite(Number(photo?.panX))
-    ? Number(photo.panX)
-    : Number.isFinite(Number(photo?.focusX))
-    ? (Number(photo.focusX) - 50) * 1.5
-    : 0;
-  const panY = Number.isFinite(Number(photo?.panY))
-    ? Number(photo.panY)
-    : Number.isFinite(Number(photo?.focusY))
-    ? (Number(photo.focusY) - 50) * 1.5
-    : 0;
-  return {
-    zoom: clamp(Number(photo?.zoom) || 1, 0.6, 3.5),
-    panX: clamp(panX, -100, 100),
-    panY: clamp(panY, -100, 100),
-    fit: photo?.fit === 'contain' ? 'contain' : 'cover'
-  };
-};
+const photoAdjust = (photo) => ({
+  zoom: clamp(Number(photo?.zoom) || 1, 1, 3),
+  focusX: clamp(Number.isFinite(Number(photo?.focusX)) ? Number(photo.focusX) : 50, 0, 100),
+  focusY: clamp(Number.isFinite(Number(photo?.focusY)) ? Number(photo.focusY) : 50, 0, 100)
+});
 const fileToDataUrl = (file) => new Promise((resolve, reject) => {
   const reader = new FileReader();
   reader.onload = () => resolve(reader.result);
@@ -626,109 +612,6 @@ function Editor({ album, pageIndex, plan, usedPages, remainingPages, uploading, 
       </section>
 
       <aside className="editor-sidebar settings-sidebar">
-        {page.slots.some(Boolean) && (() => {
-          const activePhotoId = page.slots.find(Boolean);
-          const activePhoto = activePhotoId ? photosById[activePhotoId] : null;
-          if (!activePhoto) return null;
-          const adj = photoAdjust(activePhoto);
-          return (
-            <>
-              <div className="tool-heading">
-                <Move size={18}/>
-                <div>
-                  <b>Photo Position (Framing)</b>
-                  <span>Photo ko upar, niche, left, right move karein.</span>
-                </div>
-              </div>
-              <div className="framing-sidebar-card">
-                <div className="framing-dpad-wrapper">
-                  <button type="button" className="dpad-btn up" title="Move Up (Upar)" onClick={() => onUpdatePhoto(activePhoto.id, { panY: clamp(adj.panY - 6, -100, 100) })}>
-                    <ArrowUp size={15}/>
-                  </button>
-                  <div className="dpad-row">
-                    <button type="button" className="dpad-btn left" title="Move Left (Left)" onClick={() => onUpdatePhoto(activePhoto.id, { panX: clamp(adj.panX - 6, -100, 100) })}>
-                      <ArrowLeft size={15}/>
-                    </button>
-                    <button type="button" className="dpad-btn center" title="Center Photo" onClick={() => onUpdatePhoto(activePhoto.id, { panX: 0, panY: 0 })}>
-                      <Move size={13}/>
-                    </button>
-                    <button type="button" className="dpad-btn right" title="Move Right (Right)" onClick={() => onUpdatePhoto(activePhoto.id, { panX: clamp(adj.panX + 6, -100, 100) })}>
-                      <ArrowRight size={15}/>
-                    </button>
-                  </div>
-                  <button type="button" className="dpad-btn down" title="Move Down (Niche)" onClick={() => onUpdatePhoto(activePhoto.id, { panY: clamp(adj.panY + 6, -100, 100) })}>
-                    <ArrowDown size={15}/>
-                  </button>
-                </div>
-
-                <div className="framing-slider-item">
-                  <label>
-                    <span>↔️ Left / Right</span>
-                    <b>{Math.round(adj.panX)}%</b>
-                  </label>
-                  <input
-                    type="range"
-                    min="-100"
-                    max="100"
-                    step="2"
-                    value={adj.panX}
-                    onChange={(e) => onUpdatePhoto(activePhoto.id, { panX: Number(e.target.value) })}
-                  />
-                </div>
-
-                <div className="framing-slider-item">
-                  <label>
-                    <span>↕️ Up / Down</span>
-                    <b>{Math.round(adj.panY)}%</b>
-                  </label>
-                  <input
-                    type="range"
-                    min="-100"
-                    max="100"
-                    step="2"
-                    value={adj.panY}
-                    onChange={(e) => onUpdatePhoto(activePhoto.id, { panY: Number(e.target.value) })}
-                  />
-                </div>
-
-                <div className="framing-slider-item">
-                  <label>
-                    <span>🔍 Zoom Level</span>
-                    <b>{Math.round(adj.zoom * 100)}%</b>
-                  </label>
-                  <input
-                    type="range"
-                    min="0.6"
-                    max="3"
-                    step="0.05"
-                    value={adj.zoom}
-                    onChange={(e) => onUpdatePhoto(activePhoto.id, { zoom: Number(e.target.value) })}
-                  />
-                </div>
-
-                <div className="framing-btn-row">
-                  <button
-                    type="button"
-                    className={`framing-toggle-fit ${adj.fit === 'contain' ? 'active' : ''}`}
-                    onClick={() => onUpdatePhoto(activePhoto.id, { fit: adj.fit === 'contain' ? 'cover' : 'contain' })}
-                  >
-                    {adj.fit === 'contain' ? <Maximize2 size={13}/> : <Minimize2 size={13}/>}
-                    <span>{adj.fit === 'contain' ? 'Fill Frame' : 'Show Full Photo'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="framing-reset-btn"
-                    title="Reset Photo Position"
-                    onClick={() => onUpdatePhoto(activePhoto.id, { zoom: 1, panX: 0, panY: 0, fit: 'cover' })}
-                  >
-                    <RotateCcw size={12}/> Reset
-                  </button>
-                </div>
-              </div>
-              <div className="tool-divider"/>
-            </>
-          );
-        })()}
         <div className="tool-heading"><FileText size={18}/><div><b>Storytelling Scrapbook</b><span>Turn this page into a handcrafted memory story.</span></div></div>
         <div className="story-mode-switch"><button className={!page.storyMode?'active':''} onClick={()=>onUpdatePage({storyMode:false})}>Classic</button><button className={page.storyMode?'active':''} onClick={()=>onUpdatePage({storyMode:true})}>Scrapbook</button></div>
         {page.storyMode && <>
@@ -868,13 +751,16 @@ function PageCanvas({ page, photosById, editor=false, onDragStart, onDrop, onRem
     const adjust=photoAdjust(photo);
     panRef.current={
       photoId:photo.id,
+      imgEl:e.currentTarget,
       pointerId:e.pointerId,
       startX:e.clientX,
       startY:e.clientY,
-      startPanX:adjust.panX,
-      startPanY:adjust.panY,
+      startFocusX:adjust.focusX,
+      startFocusY:adjust.focusY,
       width:Math.max(1,rect.width),
-      height:Math.max(1,rect.height)
+      height:Math.max(1,rect.height),
+      curFocusX:adjust.focusX,
+      curFocusY:adjust.focusY
     };
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
@@ -883,24 +769,29 @@ function PageCanvas({ page, photosById, editor=false, onDragStart, onDrop, onRem
     e.preventDefault();
     const dx=((e.clientX-pan.startX)/pan.width)*100;
     const dy=((e.clientY-pan.startY)/pan.height)*100;
-    const panX=clamp(pan.startPanX+dx,-100,100);
-    const panY=clamp(pan.startPanY+dy,-100,100);
-    onUpdatePhoto(pan.photoId,{panX,panY});
+    const curX=clamp(pan.startFocusX-dx,0,100);
+    const curY=clamp(pan.startFocusY-dy,0,100);
+    pan.curFocusX=curX;
+    pan.curFocusY=curY;
+    if(pan.imgEl){
+      pan.imgEl.style.objectPosition=`${curX}% ${curY}%`;
+    }
   };
-  const endPan = (e) => { if(panRef.current?.pointerId===e.pointerId) panRef.current=null; };
-  const nudgePhoto = (photo, dx, dy) => {
-    const adj = photoAdjust(photo);
-    onUpdatePhoto(photo.id, {
-      panX: clamp(adj.panX + dx, -100, 100),
-      panY: clamp(adj.panY + dy, -100, 100)
-    });
+  const endPan = (e) => {
+    const pan=panRef.current;
+    if(pan && pan.pointerId===e.pointerId){
+      onUpdatePhoto(pan.photoId,{focusX:pan.curFocusX,focusY:pan.curFocusY,panX:undefined,panY:undefined});
+      panRef.current=null;
+    }
   };
-  const setZoom = (photo, value) => onUpdatePhoto(photo.id,{zoom:clamp(Number(value),0.6,3.5)});
-  const toggleFit = (photo) => {
-    const adj = photoAdjust(photo);
-    onUpdatePhoto(photo.id, { fit: adj.fit === 'contain' ? 'cover' : 'contain' });
+  const handleWheelZoom = (e, photo) => {
+    if (!editor) return;
+    e.preventDefault();
+    const adjust = photoAdjust(photo);
+    const nextZoom = clamp(adjust.zoom + (e.deltaY < 0 ? 0.1 : -0.1), 1, 3);
+    onUpdatePhoto(photo.id, { zoom: nextZoom });
   };
-  const resetPhoto = (photo) => onUpdatePhoto(photo.id,{zoom:1,panX:0,panY:0,fit:'cover'});
+  const resetPhoto = (photo) => onUpdatePhoto(photo.id,{zoom:1,focusX:50,focusY:50,panX:undefined,panY:undefined});
 
   const startTextDrag = (e) => {
     if(!editor || !page.storyMode || !page.text) return;
@@ -930,31 +821,14 @@ function PageCanvas({ page, photosById, editor=false, onDragStart, onDrop, onRem
       const frameStyle=page.storyMode?{left:`${frame.x}%`,top:`${frame.y}%`,width:`${frame.w}%`,height:`${frame.h}%`}:undefined;
       return <div key={idx} style={frameStyle} className={`photo-slot slot-${idx} ${editor?'editor-slot':''} ${editor&&selectedPhoto?'tap-ready':''} ${activeSlot===idx?'adjusting':''} ${page.storyMode?'free-scrap-photo':''}`} onDragOver={editor?(e)=>e.preventDefault():undefined} onDrop={editor?(e)=>onDrop(e,idx):undefined} onClick={editor&&selectedPhoto?()=>onTapSlot(idx):undefined}>
         {photo ? <>
-          <img src={photo.src} alt="" draggable={false} style={{transform:`translate(${adjust.panX}%, ${adjust.panY}%) scale(${adjust.zoom})`,objectFit:adjust.fit,transformOrigin:'center center',cursor:editor?'grab':'default'}} onPointerDown={editor?(e)=>startPan(e,photo,idx):undefined} onPointerMove={editor?movePan:undefined} onPointerUp={editor?endPan:undefined} onPointerCancel={editor?endPan:undefined} onClick={editor&&!selectedPhoto?(e)=>{e.stopPropagation();setActiveSlot(activeSlot===idx?null:idx)}:undefined}/>
-          {editor&&<><button className="remove-slot" onClick={(e)=>{e.stopPropagation();onRemove(idx);setActiveSlot(null)}}><X size={13}/></button><div className="move-hint"><Move size={13}/> Drag to move (Upar, Niche, Left, Right)</div>
+          <img src={photo.src} alt="" draggable={false} style={{objectPosition:`${adjust.focusX}% ${adjust.focusY}%`,transform:`scale(${adjust.zoom})`,cursor:editor?'grab':'default'}} onPointerDown={editor?(e)=>startPan(e,photo,idx):undefined} onPointerMove={editor?movePan:undefined} onPointerUp={editor?endPan:undefined} onPointerCancel={editor?endPan:undefined} onWheel={editor?(e)=>handleWheelZoom(e,photo):undefined} onClick={editor&&!selectedPhoto?(e)=>{e.stopPropagation();setActiveSlot(activeSlot===idx?null:idx)}:undefined}/>
+          {editor&&<><button className="remove-slot" onClick={(e)=>{e.stopPropagation();onRemove(idx);setActiveSlot(null)}}><X size={13}/></button><div className="move-hint"><Move size={13}/> Drag mouse to move (Upar / Niche / Left / Right)</div>
           {page.storyMode&&<><button type="button" className="frame-move-handle" title="Move photo frame" onPointerDown={(e)=>startFrameMove(e,idx)} onPointerMove={moveFrame} onPointerUp={endFrameMove} onPointerCancel={endFrameMove}><Move size={13}/><span>Move</span></button><button type="button" className="frame-resize-handle" title="Resize photo frame" onPointerDown={(e)=>startFrameResize(e,idx)} onPointerMove={resizeFrame} onPointerUp={endFrameResize} onPointerCancel={endFrameResize}><span>↘</span></button></>}
           <div className={`photo-adjust-tools ${activeSlot===idx?'visible':''}`} onPointerDown={(e)=>e.stopPropagation()} onClick={(e)=>e.stopPropagation()}>
-            <div className="adjust-dpad">
-              <button type="button" title="Move Up (Upar)" onClick={()=>nudgePhoto(photo, 0, -6)}><ArrowUp size={12}/></button>
-              <div className="adjust-dpad-row">
-                <button type="button" title="Move Left (Left)" onClick={()=>nudgePhoto(photo, -6, 0)}><ArrowLeft size={12}/></button>
-                <button type="button" title="Center" className="dpad-center-btn" onClick={()=>onUpdatePhoto(photo.id, {panX:0, panY:0})}><Move size={10}/></button>
-                <button type="button" title="Move Right (Right)" onClick={()=>nudgePhoto(photo, 6, 0)}><ArrowRight size={12}/></button>
-              </div>
-              <button type="button" title="Move Down (Niche)" onClick={()=>nudgePhoto(photo, 0, 6)}><ArrowDown size={12}/></button>
-            </div>
-            <div className="adjust-divider"/>
-            <div className="adjust-zoom-group">
-              <button type="button" title="Zoom out" onClick={()=>setZoom(photo,adjust.zoom-.15)} disabled={adjust.zoom<=.65}><ZoomOut size={13}/></button>
-              <input aria-label="Photo zoom" type="range" min="0.6" max="3" step="0.05" value={adjust.zoom} onChange={(e)=>setZoom(photo,e.target.value)}/>
-              <button type="button" title="Zoom in" onClick={()=>setZoom(photo,adjust.zoom+.15)} disabled={adjust.zoom>=2.95}><ZoomIn size={13}/></button>
-            </div>
-            <div className="adjust-divider"/>
-            <button type="button" className={`toggle-fit-btn ${adjust.fit==='contain'?'active':''}`} title={adjust.fit==='contain'?'Full Frame':'Show Full Photo'} onClick={()=>toggleFit(photo)}>
-              {adjust.fit==='contain'?<Maximize2 size={12}/>:<Minimize2 size={12}/>}
-              <span>{adjust.fit==='contain'?'Fill':'Fit'}</span>
-            </button>
-            <button type="button" title="Reset position" className="reset-adjust" onClick={()=>resetPhoto(photo)}><RotateCcw size={12}/></button>
+            <button type="button" title="Zoom out" onClick={()=>onUpdatePhoto(photo.id,{zoom:clamp(adjust.zoom-.15,1,3)})} disabled={adjust.zoom<=1.001}><ZoomOut size={13}/></button>
+            <input aria-label="Photo zoom" type="range" min="1" max="3" step="0.05" value={adjust.zoom} onChange={(e)=>onUpdatePhoto(photo.id,{zoom:Number(e.target.value)})}/>
+            <button type="button" title="Zoom in" onClick={()=>onUpdatePhoto(photo.id,{zoom:clamp(adjust.zoom+.15,1,3)})} disabled={adjust.zoom>=2.999}><ZoomIn size={13}/></button>
+            <button type="button" title="Reset center" className="reset-adjust" onClick={()=>resetPhoto(photo)}><RotateCcw size={12}/></button>
           </div></>}
         </> : editor ? <div className="slot-placeholder"><ImagePlus size={24}/><b>{selectedPhoto?'Tap to place photo':'Drop photo here'}</b><span>Slot {idx+1}</span></div> : <div className="empty-preview-slot"/>}
       </div>
