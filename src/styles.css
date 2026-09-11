@@ -124,3 +124,17 @@ html{scroll-behavior:smooth}.landing-page{min-height:100vh;background:linear-gra
 .photo-adjust-tools input[type="range"]{width:64px;accent-color:#f28b57;cursor:pointer}
 .photo-adjust-tools .reset-adjust:hover{background:#fff;color:#241d18}
 
+/* PUBLIC ALBUMS & SHARE STYLING */
+.public-showcase{margin-top:28px;background:rgba(255,255,255,.82);border-radius:20px;padding:24px 28px;border:1px solid #eaded1}
+.share-lookup-box{display:flex;align-items:center;gap:8px}
+.share-lookup-box input{padding:9px 14px;border-radius:10px;border:1px solid #d8cbbe;background:#fff;font-size:12px;width:240px;outline:none}
+.share-lookup-box input:focus{border-color:#e56d35}
+.share-lookup-box button{padding:9px 16px;border-radius:10px;background:#2c2018;color:#fff;border:0;font-size:11px;font-weight:700;cursor:pointer;transition:background .15s ease}
+.share-lookup-box button:hover{background:#e56d35}
+.public-album-card{cursor:pointer;transition:transform .18s ease,box-shadow .18s ease;display:flex;flex-direction:column}
+.public-album-card:hover{transform:translateY(-4px);box-shadow:0 12px 28px rgba(44,32,24,.12)}
+.public-open-chip{margin-top:10px;display:inline-flex;align-items:center;justify-content:center;gap:5px;background:#fbf3ec;border:1px solid #ecc9b3;color:#d8602e;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;width:100%;transition:all .15s ease}
+.public-open-chip:hover{background:#e56d35;color:#fff;border-color:#e56d35}
+.empty-public-note{text-align:center;padding:32px 20px;color:#857161;font-size:13px;line-height:1.6}
+
+

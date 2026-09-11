@@ -14,6 +14,36 @@ const AUTH_SESSION_KEY = 'clickflip_session_v1';
 const REMEMBER_LOGIN_KEY = 'clickflip_saved_login_v1';
 const USER_ALBUMS_PREFIX = 'albums_v4:';
 const PUBLIC_PREFIX = 'public_album_v1:';
+const PUBLIC_REGISTRY_KEY = 'clickflip_public_registry_v1';
+
+function getPublicAlbumsRegistry() {
+  try {
+    const list = JSON.parse(localStorage.getItem(PUBLIC_REGISTRY_KEY) || '[]');
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePublicAlbumToRegistry(album) {
+  try {
+    const current = getPublicAlbumsRegistry().filter((a) => a.id !== album.id && a.shareSlug !== album.shareSlug);
+    current.unshift(album);
+    localStorage.setItem(PUBLIC_REGISTRY_KEY, JSON.stringify(current.slice(0, 30)));
+  } catch (err) {
+    console.warn('Failed to save to public registry:', err);
+  }
+}
+
+function getSlugFromUrl() {
+  const hash = location.hash || '';
+  if (hash.startsWith('#/share/')) return hash.replace('#/share/', '').split('?')[0];
+  if (hash.startsWith('#share/')) return hash.replace('#share/', '').split('?')[0];
+  const params = new URLSearchParams(location.search);
+  if (params.get('share')) return params.get('share');
+  if (location.pathname.startsWith('/share/')) return location.pathname.replace('/share/', '').split('/')[0];
+  return '';
+}
 
 const PLANS = [
   { id: 'free', name: 'Free', price: 0, pages: 5, description: 'Up to 5 pages' },
@@ -164,8 +194,21 @@ function normalizeAlbum(album) {
 }
 
 
-function LandingPage({ onLogin, onRegister }) {
+function LandingPage({ onLogin, onRegister, onOpenPublicAlbum }) {
   const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const [publicAlbums, setPublicAlbums] = useState(() => getPublicAlbumsRegistry());
+  const [shareInput, setShareInput] = useState('');
+
+  useEffect(() => {
+    setPublicAlbums(getPublicAlbumsRegistry());
+  }, []);
+
+  const handleOpenCode = (e) => {
+    e.preventDefault();
+    const clean = shareInput.trim().replace(/^.*\/share\//, '').replace(/^#\/?share\//, '');
+    if (clean && onOpenPublicAlbum) onOpenPublicAlbum(clean);
+  };
+
   const albums = [
     { title: 'Wedding Memories', count: '24 photos', kind: 'wedding' },
     { title: 'Baby Moments', count: '18 photos', kind: 'baby' },
@@ -177,6 +220,7 @@ function LandingPage({ onLogin, onRegister }) {
       <button className="landing-brand" onClick={()=>scrollTo('home')} aria-label="ClickFlip home"><span><BookOpen size={20}/></span><b>ClickFlip</b></button>
       <nav className="landing-nav" aria-label="Main navigation">
         <button className="active" onClick={()=>scrollTo('home')}>Home</button>
+        <button onClick={()=>scrollTo('public-gallery')}>Public Albums</button>
         <button onClick={()=>scrollTo('features')}>Features</button>
         <button onClick={()=>scrollTo('pricing')}>Pricing</button>
         <button onClick={()=>scrollTo('templates')}>Templates</button>
@@ -189,9 +233,12 @@ function LandingPage({ onLogin, onRegister }) {
       <div className="hero-copy-block">
         <div className="hero-eyebrow">YOUR MEMORIES. BEAUTIFULLY TOLD.</div>
         <h1>Create Stunning<br/>Photo Albums<br/>in Minutes</h1>
-        <p>Turn your special moments into beautiful digital albums with a real page-flip experience.</p>
-        <div className="hero-actions"><button className="hero-primary" onClick={()=>onRegister('free')}>Get Started Free <ChevronRight size={16}/></button><button className="hero-demo" onClick={()=>scrollTo('templates')}><span><Play size={13} fill="currentColor"/></span> Watch Demo</button></div>
-        <div className="hero-trust"><span><Check size={14}/> No card required</span><span><Check size={14}/> 5 pages free</span><span><Check size={14}/> Mobile friendly</span></div>
+        <p>Turn your special moments into beautiful digital albums with a real page-flip experience. Public share links can be opened by anyone without login!</p>
+        <div className="hero-actions">
+          <button className="hero-primary" onClick={()=>onRegister('free')}>Get Started Free <ChevronRight size={16}/></button>
+          <button className="hero-demo" onClick={()=>scrollTo('public-gallery')}><span><BookOpen size={13}/></span> View Public Albums</button>
+        </div>
+        <div className="hero-trust"><span><Check size={14}/> No login needed for viewing</span><span><Check size={14}/> 5 pages free</span><span><Check size={14}/> Mobile friendly</span></div>
       </div>
       <div className="hero-art" aria-label="ClickFlip album preview">
         <div className="hero-polaroid hero-polaroid-left"><div className="mini-scene scene-family"><i/><i/><i/></div></div>
@@ -200,6 +247,50 @@ function LandingPage({ onLogin, onRegister }) {
         <div className="hero-book-cover"><span>Good<br/>Things<br/>Live Forever</span><b>♡</b></div>
         <div className="hero-photo-strip"><div className="mini-scene scene-travel"><i/><i/></div></div>
       </div>
+    </section>
+
+    <section id="public-gallery" className="landing-albums public-showcase">
+      <div className="section-head">
+        <div>
+          <small>PUBLIC ACCESS • NO LOGIN REQUIRED</small>
+          <h2>Public Shared Albums (Sab Ke Liye Open)</h2>
+        </div>
+        <form onSubmit={handleOpenCode} className="share-lookup-box">
+          <input
+            type="text"
+            placeholder="Paste share link ya code..."
+            value={shareInput}
+            onChange={(e) => setShareInput(e.target.value)}
+          />
+          <button type="submit">Open Album</button>
+        </form>
+      </div>
+
+      {publicAlbums.length > 0 ? (
+        <div className="landing-album-grid">
+          {publicAlbums.map((a) => (
+            <article
+              className="landing-album-card public-album-card"
+              key={a.id || a.shareSlug}
+              onClick={() => onOpenPublicAlbum && onOpenPublicAlbum(a.shareSlug || a.id)}
+            >
+              <div
+                className="landing-thumb custom-cover"
+                style={a.cover ? { backgroundImage: `url(${a.cover})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+              >
+                {!a.cover && <div className="thumb-scene"><i/><i/><i/></div>}
+              </div>
+              <h3>{a.title}</h3>
+              <p>{a.pages?.length || 1} Pages • {a.subtitle || 'Public Album'}</p>
+              <button type="button" className="public-open-chip">Open Album <ChevronRight size={13}/></button>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-public-note">
+          <p>Koi bhi album create karke <b>"Publish & Copy Link"</b> karega to vo bina login ke yahan aur link ke zariye sabko dikhega!</p>
+        </div>
+      )}
     </section>
 
     <section id="templates" className="landing-albums">
@@ -343,14 +434,32 @@ function App() {
   });
   const [publicView, setPublicView] = useState('home');
   const [authPlan, setAuthPlan] = useState('free');
-  const [shareSlug, setShareSlug] = useState(() => location.hash.startsWith('#/share/') ? location.hash.replace('#/share/','') : '');
+  const [shareSlug, setShareSlug] = useState(() => getSlugFromUrl());
 
   useEffect(() => {
-    const h = () => setShareSlug(location.hash.startsWith('#/share/') ? location.hash.replace('#/share/','') : '');
-    window.addEventListener('hashchange', h); return () => window.removeEventListener('hashchange', h);
+    const syncSlug = () => setShareSlug(getSlugFromUrl());
+    window.addEventListener('hashchange', syncSlug);
+    window.addEventListener('popstate', syncSlug);
+    return () => {
+      window.removeEventListener('hashchange', syncSlug);
+      window.removeEventListener('popstate', syncSlug);
+    };
   }, []);
 
-  if (shareSlug) return <PublicShareView slug={shareSlug} onExit={()=>{location.hash=''; setShareSlug('')}}/>;
+  const openShare = (slug) => {
+    location.hash = `#/share/${slug}`;
+    setShareSlug(slug);
+  };
+
+  const exitShare = () => {
+    location.hash = '';
+    if (location.pathname.startsWith('/share/')) {
+      history.pushState(null, '', '/');
+    }
+    setShareSlug('');
+  };
+
+  if (shareSlug) return <PublicShareView slug={shareSlug} onExit={exitShare}/>;
 
   const onAuthenticated = (user) => { localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(user)); setSession(user); };
   const logout = () => { localStorage.removeItem(AUTH_SESSION_KEY); setSession(null); setPublicView('home'); };
@@ -361,7 +470,7 @@ function App() {
   const openAuth = (mode, planId='free') => { setAuthPlan(planId); setPublicView(mode); window.scrollTo({top:0,behavior:'smooth'}); };
 
   if (session) return <Workspace user={session} onLogout={logout} onPlanChange={changePlan}/>;
-  if (publicView === 'home') return <LandingPage onLogin={()=>openAuth('login')} onRegister={(planId)=>openAuth('register',planId)}/>;
+  if (publicView === 'home') return <LandingPage onLogin={()=>openAuth('login')} onRegister={(planId)=>openAuth('register',planId)} onOpenPublicAlbum={openShare}/>;
   return <AuthScreen key={`${publicView}-${authPlan}`} initialMode={publicView} initialPlan={authPlan} onAuthenticated={onAuthenticated} onBack={()=>setPublicView('home')}/>;
 }
 
@@ -518,9 +627,10 @@ function Workspace({ user, onLogout, onPlanChange }) {
     const slug=currentAlbum.shareSlug||`${currentAlbum.id.slice(-7)}-${Math.random().toString(36).slice(2,6)}`;
     const published={...currentAlbum,shareSlug:slug,publishedAt:Date.now()};
     await dbSet(`${PUBLIC_PREFIX}${slug}`,published);
+    savePublicAlbumToRegistry(published);
     updateAlbum({shareSlug:slug,publishedAt:Date.now()});
     const link=`${location.origin}${location.pathname}#/share/${slug}`;
-    try { await navigator.clipboard.writeText(link); setToast('Album published. Demo share link copied.'); }
+    try { await navigator.clipboard.writeText(link); setToast('Album published! Public link copied - ab koi bhi bina login ke dekh sakta hai.'); }
     catch { setToast(`Album published: ${link}`); }
   };
 
@@ -877,11 +987,36 @@ function Preview({ album, onBack, onPublish, publicMode=false }) {
 }
 
 function PublicShareView({ slug, onExit }) {
-  const [album,setAlbum]=useState(null); const [loading,setLoading]=useState(true);
-  useEffect(()=>{dbGet(`${PUBLIC_PREFIX}${slug}`).then(setAlbum).finally(()=>setLoading(false))},[slug]);
-  if(loading)return <div className="loading">Opening shared album…</div>;
-  if(!album)return <main className="share-not-found"><BookOpen size={52}/><h1>Album not found</h1><p>This demo link only works where the album has been published locally.</p><button className="primary" onClick={onExit}>Back to ClickFlip</button></main>;
-  return <Preview album={album} publicMode onBack={onExit} onPublish={()=>{}}/>;
+  const [album, setAlbum] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        let a = await dbGet(`${PUBLIC_PREFIX}${slug}`);
+        if (!a) {
+          const registry = getPublicAlbumsRegistry();
+          a = registry.find((item) => item.shareSlug === slug || item.id === slug);
+        }
+        setAlbum(a || null);
+      } catch (err) {
+        console.error('Failed to load shared album:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [slug]);
+
+  if (loading) return <div className="loading">Opening public album…</div>;
+  if (!album) return (
+    <main className="share-not-found">
+      <BookOpen size={52}/>
+      <h1>Album not found</h1>
+      <p>Yeh shared album link valid nahi hai ya abhi tak publish nahi kiya gaya hai.</p>
+      <button className="primary" onClick={onExit}>Back to ClickFlip Home</button>
+    </main>
+  );
+  return <Preview album={album} publicMode onBack={onExit} onPublish={() => {}}/>;
 }
 
 function PlanModal({ current, usedPages, onClose, onSelect }) { return <Modal title="Choose Your Plan" onClose={onClose} wide><div className="plan-grid">{PLANS.map((p)=><article className={`plan-card ${current.id===p.id?'current':''}`} key={p.id}>{p.id==='unlimited'&&<Crown className="plan-crown"/>}<small>{p.name}</small><h2>{planPrice(p)}</h2><p>{p.description}</p><ul><li><Check/> Multiple albums</li><li><Check/> Page editor & collages</li><li><Check/> Text & fonts</li><li><Check/> Page music</li></ul><button disabled={current.id===p.id || (p.pages!==Infinity&&usedPages>p.pages)} onClick={()=>onSelect(p.id)}>{current.id===p.id?'Current Plan':p.pages!==Infinity&&usedPages>p.pages?'Reduce pages first':'Select Plan'}</button></article>)}</div><p className="modal-note">Payment gateway abhi demo me connected nahi hai. Paid plan selection local demo activation hai.</p></Modal> }
