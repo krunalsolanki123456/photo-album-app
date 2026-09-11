@@ -37,11 +37,16 @@ function savePublicAlbumToRegistry(album) {
 
 function getSlugFromUrl() {
   const hash = location.hash || '';
-  if (hash.startsWith('#/share/')) return hash.replace('#/share/', '').split('?')[0];
-  if (hash.startsWith('#share/')) return hash.replace('#share/', '').split('?')[0];
+  if (hash.includes('/share/')) {
+    const parts = hash.split('/share/');
+    if (parts[1]) return decodeURIComponent(parts[1].split(/[?&#]/)[0]);
+  }
   const params = new URLSearchParams(location.search);
-  if (params.get('share')) return params.get('share');
-  if (location.pathname.startsWith('/share/')) return location.pathname.replace('/share/', '').split('/')[0];
+  if (params.get('share')) return decodeURIComponent(params.get('share'));
+  if (location.pathname.includes('/share/')) {
+    const parts = location.pathname.split('/share/');
+    if (parts[1]) return decodeURIComponent(parts[1].split(/[?&#]/)[0]);
+  }
   return '';
 }
 
@@ -113,6 +118,40 @@ async function dbSet(key, value) {
     tx.oncomplete = resolve;
     tx.onerror = () => reject(tx.error);
   });
+}
+
+async function findAlbumAcrossDb(slug) {
+  if (!slug) return null;
+  try {
+    const direct = await dbGet(`${PUBLIC_PREFIX}${slug}`);
+    if (direct) return direct;
+
+    const db = await openDb();
+    const all = await new Promise((resolve) => {
+      try {
+        const tx = db.transaction(STORE, 'readonly');
+        const req = tx.objectStore(STORE).getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+      } catch {
+        resolve([]);
+      }
+    });
+
+    for (const item of all) {
+      if (!item) continue;
+      if (item.shareSlug === slug || item.id === slug || (typeof item.id === 'string' && item.id.includes(slug))) {
+        return item;
+      }
+      if (Array.isArray(item)) {
+        const found = item.find((a) => a.shareSlug === slug || a.id === slug || (typeof a?.id === 'string' && a.id.includes(slug)));
+        if (found) return found;
+      }
+    }
+  } catch (err) {
+    console.warn('findAlbumAcrossDb error:', err);
+  }
+  return null;
 }
 
 const makeId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -629,7 +668,7 @@ function Workspace({ user, onLogout, onPlanChange }) {
     await dbSet(`${PUBLIC_PREFIX}${slug}`,published);
     savePublicAlbumToRegistry(published);
     updateAlbum({shareSlug:slug,publishedAt:Date.now()});
-    const link=`${location.origin}${location.pathname}#/share/${slug}`;
+    const link=`${location.origin}/#/share/${slug}`;
     try { await navigator.clipboard.writeText(link); setToast('Album published! Public link copied - ab koi bhi bina login ke dekh sakta hai.'); }
     catch { setToast(`Album published: ${link}`); }
   };
@@ -993,12 +1032,12 @@ function PublicShareView({ slug, onExit }) {
   useEffect(() => {
     (async () => {
       try {
-        let a = await dbGet(`${PUBLIC_PREFIX}${slug}`);
+        let a = await findAlbumAcrossDb(slug);
         if (!a) {
           const registry = getPublicAlbumsRegistry();
-          a = registry.find((item) => item.shareSlug === slug || item.id === slug);
+          a = registry.find((item) => item.shareSlug === slug || item.id === slug || (typeof item.id === 'string' && item.id.includes(slug)));
         }
-        setAlbum(a || null);
+        setAlbum(a ? normalizeAlbum(a) : null);
       } catch (err) {
         console.error('Failed to load shared album:', err);
       } finally {
