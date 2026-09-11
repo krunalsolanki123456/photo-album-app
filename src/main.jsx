@@ -429,6 +429,43 @@ function Workspace({ user, onLogout, onPlanChange }) {
     } finally { setUploading(false); }
   };
 
+  const deleteUploadedPhoto = (photoId) => {
+    if (!confirm('Kya aap is uploaded photo ko album se permanently delete karna chahte hain?')) return;
+    updateAlbum((a) => {
+      const nextPhotos = a.photos.filter((p) => p.id !== photoId);
+      const nextPages = a.pages.map((p) => ({
+        ...p,
+        slots: p.slots.map((id) => (id === photoId ? null : id))
+      }));
+      const nextCover = a.cover === a.photos.find((p) => p.id === photoId)?.src
+        ? (nextPhotos[0]?.src || '')
+        : a.cover;
+      return {
+        ...a,
+        photos: nextPhotos,
+        pages: nextPages,
+        cover: nextCover
+      };
+    });
+    setToast('Photo delete ho gayi.');
+  };
+
+  const clearUnusedPhotos = () => {
+    if (!currentAlbum) return;
+    const usedIds = new Set(currentAlbum.pages.flatMap((p) => p.slots.filter(Boolean)));
+    const unusedCount = currentAlbum.photos.filter((p) => !usedIds.has(p.id)).length;
+    if (unusedCount === 0) {
+      setToast('Saari photos pages par use ho chuki hain.');
+      return;
+    }
+    if (!confirm(`Kya aap ${unusedCount} unused photos ko library se delete karna chahte hain?`)) return;
+    updateAlbum((a) => {
+      const nextPhotos = a.photos.filter((p) => usedIds.has(p.id));
+      return { ...a, photos: nextPhotos };
+    });
+    setToast(`${unusedCount} unused photos delete ho gayi.`);
+  };
+
   const updatePage = (pageIndex, patch) => updateAlbum((a)=>({...a,pages:a.pages.map((p,i)=>i===pageIndex?{...p,...patch}:p)}));
   const updatePhotoAdjust = (photoId, patch) => updateAlbum((a)=>({...a,photos:a.photos.map((p)=>p.id===photoId?{...p,...photoAdjust({...p,...patch})}:p)}));
 
@@ -508,6 +545,7 @@ function Workspace({ user, onLogout, onPlanChange }) {
       onPageChange={setEditorPage} onNextPage={addNextPage} onAddPage={addBlankPage} onDeletePage={deletePage}
       onUpdatePage={(patch)=>updatePage(editorPage,patch)} onUpdatePhoto={updatePhotoAdjust} onUploadMusic={uploadMusic}
       onPreview={()=>setScreen('preview')} onPublish={publishAlbum}
+      onDeletePhoto={deleteUploadedPhoto} onClearUnused={clearUnusedPhotos}
       onBack={()=>setScreen('dashboard')} />}
 
     {screen==='preview' && currentAlbum && <Preview album={currentAlbum} onBack={()=>setScreen('editor')} onPublish={publishAlbum} />}
@@ -536,7 +574,7 @@ function Dashboard({ albums, activePlan, usedPages, remainingPages, onOpen, onPr
   </main>;
 }
 
-function Editor({ album, pageIndex, plan, usedPages, remainingPages, uploading, photoSearch, setPhotoSearch, inputPhotosRef, onUploadPhotos, onLayout, onAssign, onRemoveSlot, onPageChange, onNextPage, onAddPage, onDeletePage, onUpdatePage, onUpdatePhoto, onUploadMusic, onPreview, onPublish, onBack }) {
+function Editor({ album, pageIndex, plan, usedPages, remainingPages, uploading, photoSearch, setPhotoSearch, inputPhotosRef, onUploadPhotos, onLayout, onAssign, onRemoveSlot, onPageChange, onNextPage, onAddPage, onDeletePage, onUpdatePage, onUpdatePhoto, onUploadMusic, onPreview, onPublish, onBack, onDeletePhoto, onClearUnused }) {
   const page=album.pages[pageIndex];
   const [selectedPhoto, setSelectedPhoto] = useState('');
   const [canvasZoom, setCanvasZoom] = useState(100);
@@ -602,9 +640,39 @@ function Editor({ album, pageIndex, plan, usedPages, remainingPages, uploading, 
     </div>
 
     <section className="photo-library">
-      <div className="library-head"><div><b><ImagePlus size={17}/> Photo Library</b><span>{album.photos.length} photos uploaded · Drag photos into the current page</span></div><div className="library-actions"><input value={photoSearch} onChange={(e)=>setPhotoSearch(e.target.value)} placeholder="Search photos…"/><button className="secondary" onClick={()=>inputPhotosRef.current?.click()}><Upload size={15}/>{uploading?'Uploading…':'Upload Photos'}</button><input ref={inputPhotosRef} hidden multiple type="file" accept="image/*" onChange={(e)=>onUploadPhotos(e.target.files)}/></div></div>
+      <div className="library-head">
+        <div>
+          <b><ImagePlus size={17}/> Photo Library</b>
+          <span>{album.photos.length} photos uploaded · Drag photos into the current page</span>
+        </div>
+        <div className="library-actions">
+          <input value={photoSearch} onChange={(e)=>setPhotoSearch(e.target.value)} placeholder="Search photos…"/>
+          {album.photos.length > 0 && (
+            <button type="button" className="secondary danger-text" onClick={onClearUnused} title="Delete all photos that are not on any page">
+              <Trash2 size={13}/> Clean Unused
+            </button>
+          )}
+          <button className="secondary" onClick={()=>inputPhotosRef.current?.click()}><Upload size={15}/>{uploading?'Uploading…':'Upload Photos'}</button>
+          <input ref={inputPhotosRef} hidden multiple type="file" accept="image/*" onChange={(e)=>onUploadPhotos(e.target.files)}/>
+        </div>
+      </div>
       {filtered.length===0 ? <div className="library-empty" onClick={()=>inputPhotosRef.current?.click()}><Upload size={25}/><b>Upload your photos</b><span>After upload, photos stay here until you drag them onto a page.</span></div> :
-      <div className="photo-tray">{filtered.map((p)=><div className={`tray-photo ${usedIds.has(p.id)?'used':''} ${selectedPhoto===p.id?'selected':''}`} key={p.id} draggable onDragStart={(e)=>dragStart(e,p.id)} onClick={()=>setSelectedPhoto(selectedPhoto===p.id?'':p.id)} title="Drag to a slot, or tap photo then tap a slot"><img src={p.src} alt=""/><span><GripVertical size={13}/>{p.name}</span>{usedIds.has(p.id)&&<i>Used</i>}</div>)}</div>}
+      <div className="photo-tray">{filtered.map((p)=><div className={`tray-photo ${usedIds.has(p.id)?'used':''} ${selectedPhoto===p.id?'selected':''}`} key={p.id} draggable onDragStart={(e)=>dragStart(e,p.id)} onClick={()=>setSelectedPhoto(selectedPhoto===p.id?'':p.id)} title="Drag to a slot, or tap photo then tap a slot">
+        <button
+          type="button"
+          className="tray-photo-delete"
+          title="Delete this photo from album"
+          onClick={(e)=>{
+            e.stopPropagation();
+            onDeletePhoto(p.id);
+          }}
+        >
+          <Trash2 size={12}/>
+        </button>
+        <img src={p.src} alt=""/>
+        <span><GripVertical size={13}/>{p.name}</span>
+        {usedIds.has(p.id)&&<i>Used</i>}
+      </div>)}</div>}
     </section>
   </main>;
 }
