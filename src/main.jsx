@@ -85,6 +85,7 @@ async function dbSet(key, value) {
   });
 }
 
+const makeId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const photoAdjust = (photo) => ({
   zoom: clamp(Number(photo?.zoom) || 1, 1, 3),
@@ -383,17 +384,22 @@ function Workspace({ user, onLogout, onPlanChange }) {
   const activePlan = PLAN_MAP[user.plan] || PLAN_MAP.free;
 
   useEffect(() => {
-    (async()=>{
-      let saved = await dbGet(storageKey);
-      if (!saved) {
-        const older = await dbGet(`albums_v2:${user.id}`) || await dbGet('albums_v2');
-        saved = Array.isArray(older) && older.length ? older : [];
+    (async () => {
+      try {
+        let saved = await dbGet(storageKey);
+        if (!saved) {
+          const older = await dbGet(`albums_v2:${user.id}`) || await dbGet('albums_v2');
+          saved = Array.isArray(older) && older.length ? older : [];
+        }
+        const normalized = saved.map(normalizeAlbum);
+        setAlbums(normalized);
+        setActiveId(normalized[0]?.id || '');
+      } catch (err) {
+        console.error('Failed to load albums:', err);
+      } finally {
+        setLoaded(true);
       }
-      const normalized = saved.map(normalizeAlbum);
-      setAlbums(normalized);
-      setActiveId(normalized[0]?.id || '');
-      setLoaded(true);
-    })().catch(console.error);
+    })();
   }, [storageKey]);
 
   useEffect(()=>{ if (loaded) dbSet(storageKey, albums).catch(console.error); }, [albums,loaded,storageKey]);
