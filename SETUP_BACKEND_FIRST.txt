@@ -1,0 +1,13 @@
+FLIPORA BACKEND SETUP - START HERE
+
+1) Create a Supabase project.
+2) In Supabase SQL Editor run: supabase/schema.sql
+3) Copy .env.example to .env.local
+4) Fill VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
+5) Run: npm install
+6) Run: npm run dev
+
+Detailed instructions: docs/BACKEND_SETUP.md
+
+Without .env.local the project intentionally continues in its old local-browser demo mode.
+Razorpay/payment verification is NOT included in this backend patch yet.

@@ -32,7 +32,7 @@ Page quota is based on created album pages, not the number of photos uploaded.
 
 ## Important demo limitations
 
-Authentication, paid-plan activation, albums and published links use browser storage/IndexedDB in this prototype. The generated share link can reopen a published album in the same browser/origin, but **true public sharing across other devices/users requires a backend + cloud storage** (for example Supabase/Firebase/S3) and deployment. Paid plans also require a real payment gateway such as Razorpay before production use.
+This build includes a real Vercel backend path. With Neon and Private Vercel Blob configured, authentication, albums, media and public share links work across devices. IndexedDB remains as a local cache/fallback. Paid plans still require a real payment gateway such as Razorpay before production use.
 
 ## Run
 
@@ -63,3 +63,36 @@ In Scrapbook mode only, photo frames can be moved and resized independently usin
 
 ## Public landing page
 This version includes a responsive public ClickFlip home page inspired by the approved landing-page concept. Home navigation connects to Login/Register, pricing cards preselect the chosen registration plan, and logout returns to the public home page.
+
+## Development status
+
+See `docs/DEVELOPMENT_STATUS.md` for the latest feature-by-feature audit and `docs/PRODUCTION_BACKEND_PLAN.md` for the next backend/storage/payment phase.
+
+## Final photo-rich landing page implementation
+The public home page has been redesigned to match the approved ClickFlip scrapbook direction. It now includes:
+- photo-rich hero with open album visual
+- Public Shared Albums section with share-code opening
+- wedding, baby, family trip and birthday photo cards
+- How ClickFlip Works flow
+- storytelling scrapbook promotion
+- visual template gallery
+- Free / Basic / Premium / Unlimited pricing cards
+- responsive desktop/tablet/mobile styling
+
+Landing images are packaged locally under `public/assets/landing/` so the page does not depend on placeholder graphics.
+
+## Vercel backend integration
+
+This project now includes Vercel Functions, Neon Postgres, Private Vercel Blob and server-side session authentication. The previous Supabase integration has been removed.
+
+Setup files:
+
+- `.env.example`
+- `db/schema.sql`
+- `api/`
+- `server/`
+- `src/lib/backend.js`
+- `docs/BACKEND_SETUP.md`
+- `SETUP_VERCEL_BACKEND_FIRST.txt`
+
+Start here: **`SETUP_VERCEL_BACKEND_FIRST.txt`**.

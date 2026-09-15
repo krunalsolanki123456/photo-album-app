@@ -1,0 +1,94 @@
+FLIPORA - VERCEL + NEON + VERCEL BLOB BACKEND SETUP
+===================================================
+
+This build no longer uses Supabase.
+
+Final architecture:
+React/Vite frontend -> Vercel
+Server APIs -> Vercel Functions (/api)
+Database -> Neon Postgres connected through Vercel Marketplace
+Photos/Music -> PRIVATE Vercel Blob
+Auth -> Flipora server-side session auth (HttpOnly cookie + Neon)
+
+1) INSTALL
+----------
+npm install
+
+For backend-aware local development use:
+npm run dev
+
+This runs Vercel Dev so /api functions work locally.
+If you only want to inspect the frontend without backend, use:
+npm run dev:vite
+and set VITE_LOCAL_ONLY=true in .env.local.
+
+2) CREATE / IMPORT THE PROJECT IN VERCEL
+-----------------------------------------
+Recommended: push this folder to GitHub and Import Project in Vercel.
+Framework: Vite
+Build command: npm run build
+Output directory: dist
+
+3) ADD NEON DATABASE FROM VERCEL
+--------------------------------
+Vercel Project -> Storage / Marketplace -> Neon
+Create a Neon Postgres database and connect it to this project.
+DATABASE_URL should then be available automatically in the Vercel project.
+
+4) CREATE TABLES
+----------------
+Open the connected database in Vercel and use Browser -> Query,
+or open the Neon SQL Editor.
+Run the full file:
+
+db/schema.sql
+
+5) ADD VERCEL BLOB
+------------------
+Vercel Project -> Storage -> Create Database -> Blob
+IMPORTANT: choose PRIVATE access.
+Connect it to this same project.
+BLOB_READ_WRITE_TOKEN should be added automatically by Vercel.
+
+The app uploads photos/audio directly from the browser to Vercel Blob using
+secure client-upload tokens from /api/upload. Private media is streamed by
+/api/media after checking album ownership or public-publish status.
+
+6) OPTIONAL PASSWORD RESET EMAIL
+--------------------------------
+Login/Register works without any email provider.
+Forgot Password needs an email provider in production.
+This project supports Resend through these optional variables:
+
+RESEND_API_KEY=...
+EMAIL_FROM=Flipora <no-reply@yourdomain.com>
+APP_URL=https://your-domain.com
+
+Without Resend, local/preview development returns a debug reset link.
+Production returns a clear configuration error until email is configured.
+
+7) DEPLOY
+---------
+Deploy from Vercel/GitHub or run:
+npx vercel
+
+Then test in this order:
+A. Register a new user
+B. Logout / Login
+C. Create an album
+D. Upload photo(s)
+E. Refresh page -> album should still load from Neon
+F. Publish -> copy public share link
+G. Open share link in Incognito -> published photos should display
+H. Delete a photo / album -> private Blob cleanup should run
+
+SECURITY NOTES
+--------------
+- Passwords are never stored as plain text. They use Node scrypt hashing.
+- Login session token is stored only in an HttpOnly SameSite cookie.
+- Session token itself is not stored in Neon; only SHA-256 token hash is saved.
+- Media Blob store is private.
+- /api/media checks owner session OR published-album status before streaming.
+- DATABASE_URL and BLOB_READ_WRITE_TOKEN are server-only and never use VITE_ prefix.
+
+DO NOT expose DATABASE_URL or BLOB_READ_WRITE_TOKEN in frontend code.
